@@ -1,0 +1,25 @@
+name: binder-build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: [ '.github/workflows/build.yml' ]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - name: Recon headers
+        run: |
+          set -x
+          uname -r
+          ls -la /lib/modules/$(uname -r)/ 2>&1 | head -20
+          apt-cache policy linux-headers-$(uname -r) 2>&1 | head -10
+          apt-cache search "linux-headers-6.17" 2>&1 | head -20
+          apt-cache search linux-modules-extra 2>&1 | head -20
+          ls /usr/src 2>&1
+          cat /etc/apt/sources.list.d/*.sources 2>/dev/null | head -40
+          apt-cache search "linux-headers-.*azure" 2>&1 | head -20
+          apt-cache search "linux-modules-extra-.*azure" 2>&1 | head -20
