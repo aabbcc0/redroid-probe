@@ -19,6 +19,7 @@ jobs:
           echo "===== ARCH ====="
           uname -a
           uname -m
+          echo "MARKER-BUILD-2"
           echo "===== CPU INFO ====="
           lscpu | head -20
           echo "===== KERNEL VERSION ====="
