@@ -5,42 +5,47 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   probe:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
-      - name: Probe and upload report
+      - uses: actions/checkout@v4
+      - name: Probe
         run: |
-          OUT=/tmp/report.txt
-          {
+          OUT=report.txt
+          exec > >(tee $OUT) 2>&1
           echo "===== ARCH ====="
-          uname -a; uname -m
-          grep -m1 -i 'model name\|Hardware\|CPU part' /proc/cpuinfo || true
-          nproc
+          uname -a; uname -m; nproc
+          grep -m1 -i 'CPU part\|model name\|Hardware' /proc/cpuinfo || true
           echo "===== NODES ====="
           ls -la /dev/binder* /dev/ashmem* 2>&1 || true
-          echo "===== MODULES PRESENT ====="
+          echo "===== MODULES ====="
           find /lib/modules/$(uname -r) -iname '*binder*' 2>/dev/null || echo none
           echo "===== MODPROBE ====="
           sudo modprobe binder_linux 2>&1 || echo FAIL_binder
           sudo modprobe ashmem_linux 2>&1 || echo FAIL_ashmem
           ls -la /dev/binder* /dev/ashmem* 2>&1 || true
-          echo "===== KERNEL CONFIG ====="
+          echo "===== KCONFIG ====="
           (zcat /proc/config.gz 2>/dev/null || cat /boot/config-$(uname -r) 2>/dev/null) | grep -iE 'BINDER|ASHMEM' || echo no_config
           echo "===== DOCKER ====="
           docker version 2>&1 | head -8 || echo no_docker
-          sudo docker info 2>&1 | grep -iE 'Server Version|Storage Driver|Cgroup|Kernel' || true
+          sudo docker info 2>&1 | grep -iE 'Server Version|Storage Driver|Cgroup Version|Kernel Version|Total Memory' || true
           echo "===== PULL ====="
           sudo docker pull --platform linux/arm64 redroid/redroid:11.0.0-latest 2>&1 | tail -4 || echo PULL_FAILED
-          echo "===== IMAGES ====="
           sudo docker images 2>&1 | head -5 || true
-          } > $OUT 2>&1
-          cat $OUT
-      - name: Upload report
+      - name: Publish report to repo
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: probe-report
-          path: /tmp/report.txt
-          retention-days: 1
+        run: |
+          mkdir -p out
+          cp report.txt out/report.txt
+          cd out
+          git init -q
+          git config user.email "probe@local"
+          git config user.name "probe"
+          git add -A
+          git commit -q -m "probe report $(date -u +%s)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:reports
