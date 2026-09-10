@@ -35,7 +35,7 @@ jobs:
           cat > Makefile <<'EOF'
           obj-m := binder_linux.o
           binder_linux-y := binder.o binder_alloc.o binderfs.o
-          ccflags-y += -I$(src)
+          ccflags-y += -I$(src) -DCONFIG_ANDROID_BINDERFS -DCONFIG_ANDROID_BINDER_IPC -DCONFIG_ANDROID_BINDER_DEVICES=""
           EOF
           cp $H/drivers/android/*.c $H/drivers/android/*.h .
           make -C $H M=$PWD modules 2>&1 | tail -40
