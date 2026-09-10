@@ -14,34 +14,23 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Build binder_linux.ko against live kernel
+      - name: Get binder sources and build
         run: |
           OUT=report.txt
           exec > >(tee $OUT) 2>&1
           set -x
           K=$(uname -r)
           H=/usr/src/linux-headers-$K
-          WORK=/tmp/bk
-          rm -rf $WORK && mkdir -p $WORK
-          cd $WORK
-          # 1) fetch matching binder sources from ubuntu kernel tree
-          for TAG in "Ubuntu-6.17.0-1022.22" "Ubuntu-6.17.0-1022.22_22.22"; do
-            echo "try tag $TAG"
-            if git clone -q --depth 1 -b "$TAG" https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux-azure/+git/noble binder-src 2>/dev/null; then
-              echo "TAG_OK $TAG"; break
-            fi
-          done
-          echo "---- source list resolution fallback ----"
-          if [ ! -d binder-src ]; then
-            echo "launchpad clone failed, trying github ubuntu kernel mirror"
-            git clone -q --depth 1 -b "Ubuntu-6.17.0-1022.22" https://github.com/Ubuntu/kernel-azure binder-src 2>&1 | tail -3 || true
-          fi
-          ls binder-src 2>&1 | head
-          find . -path ./.git -prune -o -name 'binder.c' -print 2>/dev/null | head
+          W=/tmp/bk; rm -rf $W; mkdir -p $W; cd $W
+          echo "### source of truth: kernel.org 6.17"
+          curl -sSL -o lx.tar.xz https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.17.tar.xz || echo DL_FAIL_mainline
+          ls -la lx.tar.xz
+          tar -xf lx.tar.xz linux-6.17/drivers/android || echo TAR_FAIL
+          ls -la linux-6.17/drivers/android 2>&1
       - name: Publish
         if: always()
         run: |
           mkdir -p out && cp report.txt out/report.txt
           cd out && git init -q && git config user.email p@l && git config user.name p
-          git add -A && git commit -q -m "b1 $(date -u +%s)"
+          git add -A && git commit -q -m "b2 $(date -u +%s)"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:recon
