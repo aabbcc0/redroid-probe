@@ -14,30 +14,54 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Mount binderfs and start real redroid Android
+      - name: Full chain: build ko -> load -> binderfs -> run redroid
         run: |
           OUT=report.txt
           exec > >(tee $OUT) 2>&1
           set -x
-          echo "=== existing binder state ==="
-          sudo modprobe binder_linux 2>&1 || true
-          ls -la /dev/binder* 2>&1
-          grep -i binder /proc/filesystems || echo "no binderfs in /proc/filesystems"
+          K=$(uname -r); H=/usr/src/linux-headers-$K
+          W=/tmp/bk; rm -rf $W; mkdir -p $W/mod; cd $W
+          curl -sSL -o lx.tar.xz https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.17.tar.xz
+          tar -xf lx.tar.xz linux-6.17/drivers/android
+          cd mod && cp ../linux-6.17/drivers/android/*.c ../linux-6.17/drivers/android/*.h .
+          sed -i 's/#ifdef CONFIG_ANDROID_BINDERFS/#if 1 \/* patched *\//g' binder_internal.h
+          sed -i 's/\binit_ipc_ns\b/current->nsproxy->ipc_ns/g' binderfs.c
+          cat > Makefile <<'EOF'
+          obj-m := binder_linux.o
+          binder_linux-y := binder.o binder_alloc.o binderfs.o
+          ccflags-y += -I$(src)
+          EOF
+          make -C $H M=$PWD modules 2>&1 | tail -3
+          echo "=== /proc/filesystems BEFORE ==="
+          grep -i binder /proc/filesystems || echo "binderfs NOT registered"
+          echo "=== insmod fresh ko ==="
+          sudo insmod ./binder_linux.ko 2>&1 && echo INSMOD_OK || echo INSMOD_FAIL
+          echo "=== /proc/filesystems AFTER ==="
+          grep -i binder /proc/filesystems || echo "still NOT registered"
+          lsmod | grep -i binder || echo "not in lsmod"
           sudo mkdir -p /dev/binderfs
-          sudo mount -t binder binder /dev/binderfs 2>&1 && echo BINDERFS_OK || echo BINDERFS_FAIL
-          ls -la /dev/binderfs 2>&1
-          echo "=== if binderfs failed, insmod our ko ==="
-          if ! ls /dev/binderfs/binder >/dev/null 2>&1; then
-            echo "need our module"
-          fi
-          grep -i binder /proc/filesystems
-          echo "=== android modules for redroid ==="
-          for m in binder_linux ashmem_linux; do sudo modprobe $m 2>&1 || echo "no $m"; done
-          lsmod | grep -iE 'binder|ashmem' || echo none_loaded
+          sudo mount -t binder binder /dev/binderfs 2>&1 && echo BINDERFS_MOUNT_OK || echo BINDERFS_MOUNT_FAIL
+          sudo ls -la /dev/binderfs 2>&1
+          dmesg | tail -8
+          echo "=== images ==="
+          sudo docker pull --platform linux/arm64 redroid/redroid:11.0.0-latest 2>&1 | tail -2
+          echo "=== RUN REDROID ==="
+          sudo docker rm -f redroid 2>/dev/null
+          sudo docker run -d --privileged --name redroid \
+            -p 5555:5555 \
+            -v /dev/binderfs:/dev/binderfs \
+            redroid/redroid:11.0.0-latest \
+            androidboot.hardware=redroid androidboot.redroid_width=720 androidboot.redroid_height=1280 2>&1 | tail -5
+          sleep 30
+          sudo docker ps -a 2>&1 | head -5
+          echo "=== container logs ==="
+          sudo docker logs redroid 2>&1 | tail -30
+          echo "=== adb? ==="
+          sudo docker exec redroid getprop ro.product.cpu.abi 2>&1 || echo no_exec
       - name: Publish
         if: always()
         run: |
           mkdir -p out && cp report.txt out/report.txt
           cd out && git init -q && git config user.email p@l && git config user.name p
-          git add -A && git commit -q -m "b6 $(date -u +%s)"
+          git add -A && git commit -q -m "b7 $(date -u +%s)"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:recon
