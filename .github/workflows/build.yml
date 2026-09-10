@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Build and load binder_linux.ko
+      - name: Build binder_linux.ko (patch init_ipc_ns) and load
         run: |
           OUT=report.txt
           exec > >(tee $OUT) 2>&1
@@ -22,33 +22,33 @@ jobs:
           K=$(uname -r); H=/usr/src/linux-headers-$K
           W=/tmp/bk; rm -rf $W; mkdir -p $W; cd $W
           curl -sSL -o lx.tar.xz https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.17.tar.xz
-          tar -xf lx.tar.xz linux-6.17/drivers/android linux-6.17/drivers/staging 2>/dev/null
-          # install sources into header tree
-          sudo cp -r linux-6.17/drivers/android $H/drivers/
-          echo "obj-\$(CONFIG_ANDROID_BINDER_IPC) += binder.o binder_alloc.o" > /tmp/mk
-          echo "obj-\$(CONFIG_ANDROID_BINDERFS) += binderfs.o" >> /tmp/mk
-          echo "ccflags-y += -I\$(src)" >> /tmp/mk
-          sudo cp /tmp/mk $H/drivers/android/Makefile
-          cat $H/drivers/android/Makefile
-          # minimal external module build
-          mkdir -p $W/mod && cd $W/mod
+          tar -xf lx.tar.xz linux-6.17/drivers/android
+          mkdir -p mod && cd mod
+          cp ../linux-6.17/drivers/android/*.c ../linux-6.17/drivers/android/*.h .
+          # 1) drop the CONFIG_ANDROID_BINDERFS stub-conflict by undef'ing in source
+          sed -i 's/#ifdef CONFIG_ANDROID_BINDERFS/#if 1 \/* patched *\//g' binder_internal.h
+          # 2) init_ipc_ns is not exported; patch binderfs to not reference it
+          grep -n 'init_ipc_ns' binderfs.c
+          sed -i 's/\binit_ipc_ns\b/current->nsproxy->ipc_ns/g' binderfs.c
+          grep -n 'nsproxy->ipc_ns' binderfs.c | head
           cat > Makefile <<'EOF'
           obj-m := binder_linux.o
           binder_linux-y := binder.o binder_alloc.o binderfs.o
-          ccflags-y += -I$(src) -DCONFIG_ANDROID_BINDERFS -DCONFIG_ANDROID_BINDER_IPC -DCONFIG_ANDROID_BINDER_DEVICES=""
+          ccflags-y += -I$(src)
           EOF
-          cp $H/drivers/android/*.c $H/drivers/android/*.h .
-          make -C $H M=$PWD modules 2>&1 | tail -40
+          make -C $H M=$PWD modules 2>&1 | grep -vE 'warning: .CONFIG_ANDROID_BINDER_DEVICES. redefined|^ *[0-9]+ \||^ *\^|In file included|from <command-line>' | tail -25
           ls -la *.ko 2>&1
-          echo "=== try load ==="
-          sudo modprobe binder_linux 2>&1 || sudo insmod ./binder_linux.ko 2>&1 || echo INSMOD_FAIL
+          echo "=== insmod ==="
+          sudo insmod ./binder_linux.ko 2>&1 && echo INSMOD_OK || echo INSMOD_FAIL
           ls -la /dev/binder* 2>&1
-          sudo mkdir -p /dev/binderfs 2>/dev/null; sudo mount -t binder binder /dev/binderfs 2>&1 || echo binderfs_mount_fail
+          sudo mkdir -p /dev/binderfs
+          sudo mount -t binder binder /dev/binderfs 2>&1 && echo BINDERFS_OK || echo BINDERFS_FAIL
           ls -la /dev/binderfs 2>&1
+          dmesg | tail -15
       - name: Publish
         if: always()
         run: |
           mkdir -p out && cp report.txt out/report.txt
           cd out && git init -q && git config user.email p@l && git config user.name p
-          git add -A && git commit -q -m "b3 $(date -u +%s)"
+          git add -A && git commit -q -m "b5 $(date -u +%s)"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:recon
