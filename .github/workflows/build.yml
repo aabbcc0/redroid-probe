@@ -63,5 +63,5 @@ jobs:
         run: |
           mkdir -p out && cp report.txt out/report.txt
           cd out && git init -q && git config user.email p@l && git config user.name p
-          git add -A && git commit -q -m "b7 $(date -u +%s)"
-          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:recon
+          git add -A && git commit -q -m "b7x $(date -u +%s)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:b7out
