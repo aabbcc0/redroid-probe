@@ -1,0 +1,7 @@
++ echo '=== existing binder state ==='
+=== existing binder state ===
++ sudo modprobe binder_linux
+modprobe: FATAL: Module binder_linux not found in directory /lib/modules/6.17.0-1022-azure
++ true
++ ls -la '/dev/binder*'
+ls: cannot access '/dev/binder*': No such file or directory
