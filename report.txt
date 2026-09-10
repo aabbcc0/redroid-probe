@@ -1,0 +1,44 @@
+===== ARCH =====
+Linux runnervmec22z 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:12:01 UTC 2026 aarch64 aarch64 aarch64 GNU/Linux
+aarch64
+4
+CPU part	: 0xd49
+===== NODES =====
+ls: cannot access '/dev/binder*': No such file or directory
+ls: cannot access '/dev/ashmem*': No such file or directory
+===== MODULES =====
+===== MODPROBE =====
+modprobe: FATAL: Module binder_linux not found in directory /lib/modules/6.17.0-1022-azure
+FAIL_binder
+modprobe: FATAL: Module ashmem_linux not found in directory /lib/modules/6.17.0-1022-azure
+FAIL_ashmem
+ls: cannot access '/dev/binder*': No such file or directory
+ls: cannot access '/dev/ashmem*': No such file or directory
+===== KCONFIG =====
+CONFIG_ANDROID_BINDER_IPC=m
+CONFIG_ANDROID_BINDERFS=m
+CONFIG_ANDROID_BINDER_DEVICES=""
+===== DOCKER =====
+Client: Docker Engine - Community
+ Version:           28.0.4
+ API version:       1.48
+ Go version:        go1.23.7
+ Git commit:        b8034c0
+ Built:             Tue Mar 25 15:07:55 2025
+ OS/Arch:           linux/arm64
+ Context:           default
+ Server Version: 28.0.4
+ Storage Driver: overlay2
+ Cgroup Version: 2
+ Kernel Version: 6.17.0-1022-azure
+ Total Memory: 15.57GiB
+===== PULL =====
+06cb3c383cf0: Pull complete
+Digest: sha256:60b0810684be4578733a847be3314c50b70f73bc92405b5a627ebe9b633ebb5e
+Status: Downloaded newer image for redroid/redroid:11.0.0-latest
+docker.io/redroid/redroid:11.0.0-latest
+REPOSITORY                                   TAG             IMAGE ID       CREATED       SIZE
+ghcr.io/github/gh-aw-firewall/agent          latest          3a0ea6815911   3 days ago    546MB
+ghcr.io/github/gh-aw-firewall/api-proxy      latest          e0bad646c197   3 days ago    227MB
+ghcr.io/github/gh-aw-mcpg                    latest          e14ab06d5042   3 days ago    180MB
+ghcr.io/dependabot/dependabot-updater-core   latest          5c1f9f1da87f   3 days ago    826MB
