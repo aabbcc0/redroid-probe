@@ -1,9 +1,5 @@
 name: redroid-arm64-probe
 
-# Probe whether a free GitHub ARM64 runner can host ReDroid (Android in Docker).
-# ReDroid needs: aarch64 CPU + binder/ashmem kernel modules.
-# Public repos get free ARM64 minutes.
-
 on:
   workflow_dispatch:
   push:
@@ -14,59 +10,37 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
-      - name: CPU / kernel identity
+      - name: Probe and upload report
         run: |
+          OUT=/tmp/report.txt
+          {
           echo "===== ARCH ====="
-          uname -a
-          uname -m
-          echo "MARKER-BUILD-2"
-          echo "===== CPU INFO ====="
-          lscpu | head -20
-          echo "===== KERNEL VERSION ====="
-          cat /proc/version
-
-      - name: Check binder / ashmem support
-        run: |
-          echo "===== /dev nodes ====="
+          uname -a; uname -m
+          grep -m1 -i 'model name\|Hardware\|CPU part' /proc/cpuinfo || true
+          nproc
+          echo "===== NODES ====="
           ls -la /dev/binder* /dev/ashmem* 2>&1 || true
-          echo "===== loaded modules ====="
-          lsmod | grep -iE 'binder|ashmem' || echo "(none loaded)"
-          echo "===== module availability ====="
-          find /lib/modules/$(uname -r) -iname '*binder*' -o -iname '*ashmem*' 2>/dev/null || echo "(no module files)"
-          echo "===== try modprobe ====="
-          sudo modprobe binder_linux 2>&1 || echo "modprobe binder_linux FAILED"
-          sudo modprobe ashmem_linux 2>&1 || echo "modprobe ashmem_linux FAILED"
-          echo "===== after modprobe ====="
+          echo "===== MODULES PRESENT ====="
+          find /lib/modules/$(uname -r) -iname '*binder*' 2>/dev/null || echo none
+          echo "===== MODPROBE ====="
+          sudo modprobe binder_linux 2>&1 || echo FAIL_binder
+          sudo modprobe ashmem_linux 2>&1 || echo FAIL_ashmem
           ls -la /dev/binder* /dev/ashmem* 2>&1 || true
-
-      - name: Kernel config check
-        run: |
-          echo "===== /boot/config ====="
-          ls /boot/config* 2>&1 || true
-          for f in /boot/config-$(uname -r) /proc/config.gz; do
-            if [ -f "$f" ]; then
-              echo "--- $f"
-              if [[ "$f" == *.gz ]]; then zcat "$f" | grep -iE 'BINDER|ASHMEM'; else grep -iE 'BINDER|ASHMEM' "$f"; fi
-            fi
-          done
-          echo "===== can we build modules? ====="
-          ls /lib/modules/$(uname -r)/build 2>&1 || echo "(no kernel headers)"
-
-      - name: Docker availability
-        run: |
-          docker version 2>&1 | head -20 || echo "no docker client"
-          docker info 2>&1 | head -20 || true
-
-      - name: Try pulling a redroid ARM64 image (no run)
-        run: |
-          docker pull --platform linux/arm64 redroid/redroid:11.0.0-latest 2>&1 | tail -5 || echo "PULL FAILED"
-
-      - name: Summary
-        run: |
-          echo "### redroid arm64 probe result" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "arch: $(uname -m)" >> $GITHUB_STEP_SUMMARY
-          echo "kernel: $(uname -r)" >> $GITHUB_STEP_SUMMARY
-          echo "binder dev: $(ls /dev/binder* 2>/dev/null || echo MISSING)" >> $GITHUB_STEP_SUMMARY
-          echo "ashmem dev: $(ls /dev/ashmem* 2>/dev/null || echo MISSING)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "===== KERNEL CONFIG ====="
+          (zcat /proc/config.gz 2>/dev/null || cat /boot/config-$(uname -r) 2>/dev/null) | grep -iE 'BINDER|ASHMEM' || echo no_config
+          echo "===== DOCKER ====="
+          docker version 2>&1 | head -8 || echo no_docker
+          sudo docker info 2>&1 | grep -iE 'Server Version|Storage Driver|Cgroup|Kernel' || true
+          echo "===== PULL ====="
+          sudo docker pull --platform linux/arm64 redroid/redroid:11.0.0-latest 2>&1 | tail -4 || echo PULL_FAILED
+          echo "===== IMAGES ====="
+          sudo docker images 2>&1 | head -5 || true
+          } > $OUT 2>&1
+          cat $OUT
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-report
+          path: /tmp/report.txt
+          retention-days: 1
