@@ -11,31 +11,37 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Show binder sources in headers
+      - name: Build binder_linux.ko against live kernel
         run: |
           OUT=report.txt
           exec > >(tee $OUT) 2>&1
+          set -x
           K=$(uname -r)
           H=/usr/src/linux-headers-$K
-          echo "== tree =="
-          ls $H
-          echo "== drivers/android =="
-          ls -la $H/drivers/android 2>&1
-          echo "== find binder c =="
-          find $H -name '*binder*' 2>/dev/null | head -40
-          echo "== Module.symvers =="
-          ls -la $H/Module.symvers 2>&1
-          echo "== config =="
-          grep -iE 'BINDER|ASHMEM' $H/.config 2>&1
-          echo "== staging =="
-          ls $H/drivers/staging/android 2>&1
+          WORK=/tmp/bk
+          rm -rf $WORK && mkdir -p $WORK
+          cd $WORK
+          # 1) fetch matching binder sources from ubuntu kernel tree
+          for TAG in "Ubuntu-6.17.0-1022.22" "Ubuntu-6.17.0-1022.22_22.22"; do
+            echo "try tag $TAG"
+            if git clone -q --depth 1 -b "$TAG" https://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux-azure/+git/noble binder-src 2>/dev/null; then
+              echo "TAG_OK $TAG"; break
+            fi
+          done
+          echo "---- source list resolution fallback ----"
+          if [ ! -d binder-src ]; then
+            echo "launchpad clone failed, trying github ubuntu kernel mirror"
+            git clone -q --depth 1 -b "Ubuntu-6.17.0-1022.22" https://github.com/Ubuntu/kernel-azure binder-src 2>&1 | tail -3 || true
+          fi
+          ls binder-src 2>&1 | head
+          find . -path ./.git -prune -o -name 'binder.c' -print 2>/dev/null | head
       - name: Publish
         if: always()
         run: |
           mkdir -p out && cp report.txt out/report.txt
           cd out && git init -q && git config user.email p@l && git config user.name p
-          git add -A && git commit -q -m "src $(date -u +%s)"
+          git add -A && git commit -q -m "b1 $(date -u +%s)"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:recon
