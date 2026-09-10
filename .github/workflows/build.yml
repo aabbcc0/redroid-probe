@@ -14,23 +14,41 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Get binder sources and build
+      - name: Build and load binder_linux.ko
         run: |
           OUT=report.txt
           exec > >(tee $OUT) 2>&1
           set -x
-          K=$(uname -r)
-          H=/usr/src/linux-headers-$K
+          K=$(uname -r); H=/usr/src/linux-headers-$K
           W=/tmp/bk; rm -rf $W; mkdir -p $W; cd $W
-          echo "### source of truth: kernel.org 6.17"
-          curl -sSL -o lx.tar.xz https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.17.tar.xz || echo DL_FAIL_mainline
-          ls -la lx.tar.xz
-          tar -xf lx.tar.xz linux-6.17/drivers/android || echo TAR_FAIL
-          ls -la linux-6.17/drivers/android 2>&1
+          curl -sSL -o lx.tar.xz https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.17.tar.xz
+          tar -xf lx.tar.xz linux-6.17/drivers/android linux-6.17/drivers/staging 2>/dev/null
+          # install sources into header tree
+          sudo cp -r linux-6.17/drivers/android $H/drivers/
+          echo "obj-\$(CONFIG_ANDROID_BINDER_IPC) += binder.o binder_alloc.o" > /tmp/mk
+          echo "obj-\$(CONFIG_ANDROID_BINDERFS) += binderfs.o" >> /tmp/mk
+          echo "ccflags-y += -I\$(src)" >> /tmp/mk
+          sudo cp /tmp/mk $H/drivers/android/Makefile
+          cat $H/drivers/android/Makefile
+          # minimal external module build
+          mkdir -p $W/mod && cd $W/mod
+          cat > Makefile <<'EOF'
+          obj-m := binder_linux.o
+          binder_linux-y := binder.o binder_alloc.o binderfs.o
+          ccflags-y += -I$(src)
+          EOF
+          cp $H/drivers/android/*.c $H/drivers/android/*.h .
+          make -C $H M=$PWD modules 2>&1 | tail -40
+          ls -la *.ko 2>&1
+          echo "=== try load ==="
+          sudo modprobe binder_linux 2>&1 || sudo insmod ./binder_linux.ko 2>&1 || echo INSMOD_FAIL
+          ls -la /dev/binder* 2>&1
+          sudo mkdir -p /dev/binderfs 2>/dev/null; sudo mount -t binder binder /dev/binderfs 2>&1 || echo binderfs_mount_fail
+          ls -la /dev/binderfs 2>&1
       - name: Publish
         if: always()
         run: |
           mkdir -p out && cp report.txt out/report.txt
           cd out && git init -q && git config user.email p@l && git config user.name p
-          git add -A && git commit -q -m "b2 $(date -u +%s)"
+          git add -A && git commit -q -m "b3 $(date -u +%s)"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:recon
