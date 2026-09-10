@@ -14,23 +14,28 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: Recon headers
+      - name: Show binder sources in headers
         run: |
           OUT=report.txt
           exec > >(tee $OUT) 2>&1
-          set -x
-          uname -r
-          ls -la /lib/modules/$(uname -r)/ 2>&1 | head -20
-          apt-cache policy linux-headers-$(uname -r) 2>&1 | head -10
-          apt-cache search "linux-headers-6.17" 2>&1 | head -20
-          apt-cache search linux-modules-extra 2>&1 | head -20
-          ls /usr/src 2>&1
-          cat /etc/apt/sources.list.d/*.sources 2>/dev/null | head -40
-          apt-cache search "azure" 2>&1 | grep -i headers | head -20
-      - name: Publish report
+          K=$(uname -r)
+          H=/usr/src/linux-headers-$K
+          echo "== tree =="
+          ls $H
+          echo "== drivers/android =="
+          ls -la $H/drivers/android 2>&1
+          echo "== find binder c =="
+          find $H -name '*binder*' 2>/dev/null | head -40
+          echo "== Module.symvers =="
+          ls -la $H/Module.symvers 2>&1
+          echo "== config =="
+          grep -iE 'BINDER|ASHMEM' $H/.config 2>&1
+          echo "== staging =="
+          ls $H/drivers/staging/android 2>&1
+      - name: Publish
         if: always()
         run: |
           mkdir -p out && cp report.txt out/report.txt
           cd out && git init -q && git config user.email p@l && git config user.name p
-          git add -A && git commit -q -m "recon $(date -u +%s)"
+          git add -A && git commit -q -m "src $(date -u +%s)"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:recon
