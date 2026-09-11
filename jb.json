@@ -1,0 +1,76 @@
+{
+  "id": 103093297954,
+  "run_id": 34544239982,
+  "workflow_name": "redroid-arm64-probe",
+  "head_branch": "main",
+  "run_url": "https://api.github.com/repos/aabbcc0/redroid-probe/actions/runs/34544239982",
+  "run_attempt": 1,
+  "node_id": "CR_kwDOUVzB788AAAAYANbjIg",
+  "head_sha": "984ac641a8659a15d2534a118738e39fbabe10fd",
+  "url": "https://api.github.com/repos/aabbcc0/redroid-probe/actions/jobs/103093297954",
+  "html_url": "https://github.com/aabbcc0/redroid-probe/actions/runs/34544239982/job/103093297954",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-09-10T23:55:08Z",
+  "started_at": "2026-09-10T23:55:11Z",
+  "completed_at": "2026-09-10T23:55:25Z",
+  "name": "probe",
+  "steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 1,
+      "started_at": "2026-09-10T23:55:12Z",
+      "completed_at": "2026-09-10T23:55:13Z"
+    },
+    {
+      "name": "Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 2,
+      "started_at": "2026-09-10T23:55:13Z",
+      "completed_at": "2026-09-10T23:55:13Z"
+    },
+    {
+      "name": "Probe",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 3,
+      "started_at": "2026-09-10T23:55:13Z",
+      "completed_at": "2026-09-10T23:55:22Z"
+    },
+    {
+      "name": "Publish report to repo",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 4,
+      "started_at": "2026-09-10T23:55:22Z",
+      "completed_at": "2026-09-10T23:55:24Z"
+    },
+    {
+      "name": "Post Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 8,
+      "started_at": "2026-09-10T23:55:24Z",
+      "completed_at": "2026-09-10T23:55:24Z"
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 9,
+      "started_at": "2026-09-10T23:55:24Z",
+      "completed_at": "2026-09-10T23:55:24Z"
+    }
+  ],
+  "check_run_url": "https://api.github.com/repos/aabbcc0/redroid-probe/check-runs/103093297954",
+  "labels": [
+    "ubuntu-24.04-arm"
+  ],
+  "runner_id": 1000000023,
+  "runner_name": "GitHub Actions 1000000023",
+  "runner_group_id": 0,
+  "runner_group_name": "GitHub Actions"
+}
